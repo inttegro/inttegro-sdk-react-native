@@ -3,8 +3,8 @@
 [API reference](https://react-native.inttegro.dev/v0.3.0/) ·
 [Studio guide](https://studio.inttegro.com/sdks/react-native)
 
-Typed React Native facade for Inttegro's native payment sheet. The current
-collection surface supports mobile money; card, Apple Pay, and Google Pay are
+Present native GHS checkout and collect Ghana Mobile Money payments through
+Inttegro's typed React Native payment sheet. Card, Apple Pay, and Google Pay are
 not exposed in this version.
 
 ```ts
