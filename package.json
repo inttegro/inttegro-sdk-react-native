@@ -1,7 +1,7 @@
 {
   "name": "@inttegro/react-native",
   "version": "0.4.0",
-  "description": "Native Inttegro payment sheet for GHS checkout and Ghana Mobile Money",
+  "description": "Official React Native payment sheet for Inttegro Checkout",
   "type": "module",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",

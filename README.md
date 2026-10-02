@@ -3,9 +3,9 @@
 [API reference](https://react-native.inttegro.dev/v0.3.0/) ·
 [Studio guide](https://studio.inttegro.com/sdks/react-native)
 
-Present native GHS checkout and collect Ghana Mobile Money payments through
-Inttegro's typed React Native payment sheet. Card, Apple Pay, and Google Pay are
-not exposed in this version.
+Present native Inttegro Checkout through its typed React Native payment sheet.
+This version exposes Mobile Money; card, Apple Pay, and Google Pay are not
+available yet.
 
 ```ts
 import { addPaymentSheetEventListener } from '@inttegro/react-native/events';
