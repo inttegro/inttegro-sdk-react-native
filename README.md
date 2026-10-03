@@ -1,11 +1,11 @@
 # Inttegro React Native
 
-[API reference](https://react-native.inttegro.dev/v0.3.0/) ·
+[API reference](https://react-native.inttegro.dev/v0.5.0/) ·
 [Studio guide](https://studio.inttegro.com/sdks/react-native)
 
-Present native Inttegro Checkout through its typed React Native payment sheet.
-This version exposes Mobile Money; card, Apple Pay, and Google Pay are not
-available yet.
+Typed React Native facade for Inttegro's native payment sheet. The current
+collection surface supports mobile money; card, Apple Pay, and Google Pay are
+not exposed in this version.
 
 ```ts
 import { addPaymentSheetEventListener } from '@inttegro/react-native/events';
@@ -64,6 +64,18 @@ try {
 }
 ```
 
+For a Buy link backed by a `customer_selected_amount` price, initialize with
+the client-safe Purchase Intent instead of a finalized Order:
+
+```ts
+await initializePaymentSheet({ purchaseIntentId: buyLink.purchaseIntentId });
+```
+
+The native sheet retrieves the merchant's currency, range, and suggested
+amounts, lets the payer choose any valid amount, and then creates the finalized
+Order idempotently before continuing through the same payment flow. Supply
+exactly one of `orderId` or `purchaseIntentId`.
+
 The root import remains supported. Applications that prefer responsibility-based
 modules can import the same APIs without pulling unrelated names into a file:
 
@@ -112,10 +124,15 @@ URLs, or raw error messages. `flowId` and `requestId` should not be used as
 metric labels. Subscribe before presenting the sheet so the first event is not
 missed.
 
+The native transport retries an idempotent Checkout mutation once when the
+server supplies a valid `Retry-After` delay. If the operation still fails, the
+terminal result may include `error.requestId` and `error.retryAfterSeconds` for
+support correlation and deliberate retry UX.
+
 The package includes a Codegen-compatible TurboModule that delegates to the
 same native `Inttegro` artifacts used by the Flutter SDK. CocoaPods links the
 iOS artifact through `InttegroReactNative.podspec`, while Gradle resolves
-`com.inttegro:inttegro-android:0.2.0`.
+`com.inttegro:inttegro-android:0.3.0`.
 
 ## Requirements
 

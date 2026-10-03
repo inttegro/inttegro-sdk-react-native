@@ -74,9 +74,7 @@ export interface PaymentSheetFeatures {
  * The `orderId` is the public ID returned by a merchant backend after it creates
  * and finalizes an Order. Never pass a merchant API key into a mobile app.
  */
-export interface PaymentSheetConfiguration {
-  /** Client-safe ID of an Order finalized by the merchant backend. */
-  orderId: string;
+export type PaymentSheetConfiguration = {
   /** Absolute deep link that resumes the application after external steps. */
   returnURL?: string;
   /** Optional native appearance overrides. */
@@ -85,7 +83,18 @@ export interface PaymentSheetConfiguration {
   telemetry?: PaymentSheetTelemetry;
   /** Optional payment-sheet content and actions. */
   features?: PaymentSheetFeatures;
-}
+} & (
+  | {
+      /** Client-safe ID of an Order finalized by the merchant backend. */
+      orderId: string;
+      purchaseIntentId?: never;
+    }
+  | {
+      orderId?: never;
+      /** Client-safe Purchase Intent whose amount the payer will choose. */
+      purchaseIntentId: string;
+    }
+);
 
 /**
  * Terminal outcome of one native payment-sheet presentation.
@@ -100,7 +109,13 @@ export type PaymentSheetResult =
   | { status: 'canceled' }
   | {
       status: 'failed';
-      error: { code: string; message: string; declineCode?: string };
+      error: {
+        code: string;
+        message: string;
+        declineCode?: string;
+        requestId?: string;
+        retryAfterSeconds?: number;
+      };
     };
 
 /** Application-facing stages in one payment-sheet presentation. */
@@ -186,6 +201,8 @@ export interface PaymentSheetTelemetryEvent {
   httpStatusCode?: number;
   /** Safe request identifier returned by the Inttegro API. */
   requestId?: string;
+  /** Bounded server-directed delay before retrying the operation. */
+  retryAfterSeconds?: number;
   /** Bounded failure category without a raw error message. */
   errorType?: string;
 }

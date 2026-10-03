@@ -13,6 +13,8 @@ const diagnostics = addPaymentSheetTelemetryListener((event) => {
     sequence: event.sequence,
     operation: event.operation,
     statusCode: event.httpStatusCode,
+    requestId: event.requestId,
+    retryAfterSeconds: event.retryAfterSeconds,
     errorType: event.errorType,
   });
 });
@@ -21,6 +23,11 @@ const diagnostics = addPaymentSheetTelemetryListener((event) => {
 Inttegro installs no exporter. The stream covers native presentation, Checkout
 retrieval, payment attempts, confirmation, authorization waits, polling,
 terminal state, and public Checkout transport activity.
+
+When an idempotent mutation receives `503` with a valid `Retry-After` header,
+the native transport waits and retries once with the same idempotency key. The
+response event records that bounded delay. If the second attempt fails, the
+terminal error can carry the same `requestId` and `retryAfterSeconds` values.
 
 Events exclude Order and Payment IDs, customer and payer fields, payment-method
 details, billing and shipping addresses, request and response bodies, redirect

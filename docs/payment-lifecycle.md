@@ -43,6 +43,8 @@ resolving `presentPaymentSheet`.
 Confirmation-code entry, provider redirects, device authorization, and Checkout
 status polling are also native intermediate states. Terminal results are limited
 to completion, customer cancellation, and an unrecoverable SDK failure.
+Terminal failures may include `error.requestId` for support correlation and
+`error.retryAfterSeconds` when the server directs the next retry window.
 
 ## Reconcile on the backend
 

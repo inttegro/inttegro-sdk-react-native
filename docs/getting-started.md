@@ -45,6 +45,23 @@ Initialization validates the bridge payload without retrieving Checkout or
 starting payment. Call it again when the Order ID or presentation options
 change. Never place an Inttegro merchant API key in a mobile application.
 
+### Let the payer choose the amount
+
+If your backend returns a Buy link whose price type is
+`customer_selected_amount`, pass its public Purchase Intent ID instead:
+
+```ts
+await initializePaymentSheet({
+  purchaseIntentId: buyLink.purchaseIntentId,
+  returnURL: 'merchant-app://inttegro-return',
+});
+```
+
+Do not send an `orderId` in this path. The sheet first shows the authoritative
+currency, minimum, optional maximum, and suggested amounts from Checkout. Once
+the payer continues, Inttegro creates the Order idempotently and the ordinary
+payment-method flow begins. Suggested amounts are shortcuts, not an allow-list.
+
 Enabling `showLineItems` offers an Order summary without opening it for the
 payer. If they choose to view the items, the native sheet expands to its
 full-height detent as the summary is revealed.

@@ -12,22 +12,38 @@ describe('payment-sheet contract', () => {
   it('trims the checkout Order ID', () => {
     assert.equal(
       normalizeConfiguration({ orderId: '  or_test  ' }).orderId,
-      'or_test'
+      'or_test',
+    );
+  });
+
+  it('accepts a customer-selected amount Purchase Intent', () => {
+    assert.deepEqual(
+      normalizeConfiguration({ purchaseIntentId: '  sale_test  ' }),
+      { purchaseIntentId: 'sale_test' },
+    );
+  });
+
+  it('requires exactly one checkout reference', () => {
+    assert.throws(() => normalizeConfiguration({}), /exactly one/);
+    assert.throws(
+      () =>
+        normalizeConfiguration({
+          orderId: 'or_test',
+          purchaseIntentId: 'sale_test',
+        }),
+      /exactly one/,
     );
   });
 
   it('rejects unsafe configuration shapes', () => {
-    assert.throws(
-      () => normalizeConfiguration({ orderId: ' ' }),
-      /orderId/
-    );
+    assert.throws(() => normalizeConfiguration({ orderId: ' ' }), /orderId/);
     assert.throws(
       () =>
         normalizeConfiguration({
           orderId: 'or_test',
           appearance: { primaryColor: '#xyz' },
         }),
-      /primaryColor/
+      /primaryColor/,
     );
     assert.throws(
       () =>
@@ -35,7 +51,7 @@ describe('payment-sheet contract', () => {
           orderId: 'or_test',
           features: { showLineItems: 'yes' },
         }),
-      /showLineItems/
+      /showLineItems/,
     );
   });
 
@@ -48,20 +64,42 @@ describe('payment-sheet contract', () => {
     };
     assert.deepEqual(
       normalizeConfiguration({ orderId: 'or_test', features }).features,
-      features
+      features,
     );
   });
 
   it('decodes native results without weakening the union', () => {
     assert.deepEqual(
       decodePaymentSheetResult(
-        JSON.stringify({ status: 'completed', paymentId: 'py_123' })
+        JSON.stringify({ status: 'completed', paymentId: 'py_123' }),
       ),
-      { status: 'completed', paymentId: 'py_123' }
+      { status: 'completed', paymentId: 'py_123' },
     );
     assert.throws(
       () => decodePaymentSheetResult(JSON.stringify({ status: 'pending' })),
-      /unknown status/
+      /unknown status/,
+    );
+    assert.deepEqual(
+      decodePaymentSheetResult(
+        JSON.stringify({
+          status: 'failed',
+          error: {
+            code: 'checkout_http_503',
+            message: 'Try again.',
+            requestId: 'req_test',
+            retryAfterSeconds: 30,
+          },
+        }),
+      ),
+      {
+        status: 'failed',
+        error: {
+          code: 'checkout_http_503',
+          message: 'Try again.',
+          requestId: 'req_test',
+          retryAfterSeconds: 30,
+        },
+      },
     );
   });
 
@@ -73,7 +111,7 @@ describe('payment-sheet contract', () => {
         orderId: 'or_test',
         telemetry: { traceparent },
       }).telemetry.traceparent,
-      traceparent
+      traceparent,
     );
     assert.throws(
       () =>
@@ -84,7 +122,7 @@ describe('payment-sheet contract', () => {
               '00-00000000000000000000000000000000-00f067aa0ba902b7-01',
           },
         }),
-      /traceparent/
+      /traceparent/,
     );
 
     const event = {
@@ -92,8 +130,11 @@ describe('payment-sheet contract', () => {
       sequence: 1,
       name: 'inttegro.checkout.load.started',
       timestamp: '2026-09-04T12:00:00.000Z',
+      retryAfterSeconds: 30,
     };
-    const decodedEvent = decodePaymentSheetTelemetryEvent(JSON.stringify(event));
+    const decodedEvent = decodePaymentSheetTelemetryEvent(
+      JSON.stringify(event),
+    );
     assert.deepEqual(decodedEvent, {
       ...event,
       timestamp: new Date(event.timestamp),
@@ -101,16 +142,16 @@ describe('payment-sheet contract', () => {
     assert.throws(
       () =>
         decodePaymentSheetTelemetryEvent(
-          JSON.stringify({ ...event, orderId: 'or_private' })
+          JSON.stringify({ ...event, orderId: 'or_private' }),
         ),
-      /invalid telemetry event/
+      /invalid telemetry event/,
     );
     assert.throws(
       () =>
         decodePaymentSheetTelemetryEvent(
-          JSON.stringify({ ...event, timestamp: '2026-09-04T12:00:00' })
+          JSON.stringify({ ...event, timestamp: '2026-09-04T12:00:00' }),
         ),
-      /invalid telemetry event/
+      /invalid telemetry event/,
     );
 
     assert.deepEqual(toPaymentSheetEvent(decodedEvent), {
@@ -124,21 +165,21 @@ describe('payment-sheet contract', () => {
         ...decodedEvent,
         name: 'inttegro.payment.confirmation.required',
       }).type,
-      'confirmationRequired'
+      'confirmationRequired',
     );
     assert.equal(
       toPaymentSheetEvent({
         ...decodedEvent,
         name: 'inttegro.payment.authorization.required',
       }).type,
-      'authorizationRequired'
+      'authorizationRequired',
     );
     assert.equal(
       toPaymentSheetEvent({
         ...decodedEvent,
         name: 'inttegro.payment.status.polling',
       }).type,
-      'paymentStatusPolling'
+      'paymentStatusPolling',
     );
     assert.equal(
       toPaymentSheetEvent({
@@ -146,7 +187,7 @@ describe('payment-sheet contract', () => {
         name: 'inttegro.request.prepared',
         operation: 'checkout.lookup',
       }),
-      null
+      null,
     );
   });
 });

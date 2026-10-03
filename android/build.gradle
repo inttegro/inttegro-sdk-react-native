@@ -9,7 +9,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'com.facebook.react'
 
-def inttegroNativeVersion = findProperty('inttegroNativeVersion') ?: '0.2.0'
+def inttegroNativeVersion = findProperty('inttegroNativeVersion') ?: '0.3.0'
 
 android {
   namespace 'com.inttegro.reactnative'
