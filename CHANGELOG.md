@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0 - 2026-10-16
+
+- Align the React Native bridge with the canonical web and native Checkout
+  lifecycle, including flow IDs and monotonic event sequences.
+- Return the exact terminal lifecycle event from `presentPaymentSheet()` and
+  include the client-safe Order snapshot when Checkout completes.
+- Add payment-action, processing, recoverable-attempt-failure, cancellation,
+  and terminal-failure events with sanitized payloads.
+- Update the native iOS and Android dependency to 0.4.0.
+
 ## 0.5.0 - 2026-10-03
 
 - Honor server-directed retry delays for transient Checkout mutations.
