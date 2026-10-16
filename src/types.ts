@@ -97,19 +97,15 @@ export type PaymentSheetConfiguration = {
     }
 );
 
-/**
- * Terminal outcome of one native payment-sheet presentation.
- *
- * Recoverable collection failures do not produce a result; the native sheet
- * stays open and lets the payer retry. A `completed` result means the client
- * experience reached success, but the merchant backend must still retrieve the
- * owner-scoped Order before fulfillment.
- */
+/** Money in an ISO 4217 currency's minor unit. */
 export interface CheckoutMoney {
+  /** Amount in the currency's minor unit. */
   value: number;
+  /** Three-letter ISO 4217 currency code. */
   currency: string;
 }
 
+/** Client-safe Order snapshot attached to Checkout lifecycle events. */
 export interface CheckoutOrder {
   id: string;
   status:
@@ -132,11 +128,13 @@ export interface CheckoutOrder {
   documents: { invoiceUrl?: string; receiptUrl?: string };
 }
 
+/** Safe description of the next action required from the customer. */
 export interface CheckoutAction {
   type: 'confirmation' | 'authorization' | 'redirect';
   expiresAt?: Date;
 }
 
+/** Sanitized reason a Checkout lifecycle operation failed. */
 export interface CheckoutFailure {
   code: string;
   message: string;
@@ -165,7 +163,7 @@ export type PaymentSheetEventType =
  * Terminal application behavior belongs in the `PaymentSheetResult` returned
  * by `presentPaymentSheet`.
  */
-interface PaymentSheetEventBase {
+export interface PaymentSheetEventBase {
   /** Random identifier shared by events from one sheet presentation. */
   flowId: string;
   /** Monotonically increasing event order within the flow. */
@@ -174,6 +172,12 @@ interface PaymentSheetEventBase {
   occurredAt: Date;
 }
 
+/**
+ * One ordered application-facing transition from a Checkout presentation.
+ *
+ * Recoverable collection failures use `paymentAttemptFailed` and leave the
+ * native sheet open so the customer can retry.
+ */
 export type PaymentSheetEvent =
   | (PaymentSheetEventBase & { type: 'presented' | 'ready' })
   | (PaymentSheetEventBase & {
