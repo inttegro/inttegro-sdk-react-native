@@ -15,9 +15,12 @@ const subscription = addPaymentSheetEventListener((event) => {
       checkoutAnalytics.started();
       break;
     case 'paymentAttemptFailed':
-      checkoutAnalytics.retryAvailable({ category: event.errorType });
+      checkoutAnalytics.retryAvailable({
+        orderId: event.order.id,
+        category: event.failure.code,
+      });
       break;
-    case 'authorizationRequired':
+    case 'paymentActionRequired':
       showReturnToPaymentHint();
       break;
   }
@@ -36,15 +39,16 @@ work.
 
 ## Separate recoverable and terminal state
 
-Checkout retrieval and payment-attempt failures can be recoverable. The native
-sheet displays safe guidance and gives the payer another attempt without
-resolving `presentPaymentSheet`.
+Payment-attempt failures can be recoverable. The native sheet displays safe
+guidance and gives the payer another attempt without resolving
+`presentPaymentSheet`.
 
 Confirmation-code entry, provider redirects, device authorization, and Checkout
 status polling are also native intermediate states. Terminal results are limited
-to completion, customer cancellation, and an unrecoverable SDK failure.
-Terminal failures may include `error.requestId` for support correlation and
-`error.retryAfterSeconds` when the server directs the next retry window.
+to completion, customer cancellation, and an unrecoverable SDK failure. After
+Checkout has prepared an Order, each event carries the same client-safe Order
+shape used by the web SDK. Request correlation and retry timing remain
+telemetry-only.
 
 ## Reconcile on the backend
 

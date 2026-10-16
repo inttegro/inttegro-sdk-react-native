@@ -71,15 +71,16 @@ full-height detent as the summary is revealed.
 ```ts
 const result = await presentPaymentSheet();
 
-switch (result.status) {
+switch (result.type) {
   case 'completed':
-    await merchantBackend.verifyAndFulfillOrder(checkout.orderId);
+    await merchantBackend.verifyAndFulfillOrder(result.order.id);
     break;
   case 'canceled':
     restoreCheckoutControls();
+    if (result.order) preserveCheckoutContext(result.order.id);
     break;
   case 'failed':
-    recordTerminalFailure(result.error.code);
+    recordTerminalFailure(result.failure.code);
     showPaymentUnavailable();
     break;
 }

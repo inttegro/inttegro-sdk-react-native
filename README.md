@@ -1,6 +1,6 @@
 # Inttegro React Native
 
-[API reference](https://react-native.inttegro.dev/v0.5.0/) ·
+[API reference](https://react-native.inttegro.dev/v0.6.0/) ·
 [Studio guide](https://studio.inttegro.com/sdks/react-native)
 
 Typed React Native facade for Inttegro's native payment sheet. The current
@@ -27,7 +27,13 @@ const lifecycleSubscription = addPaymentSheetEventListener((event) => {
       break;
     case 'paymentAttemptFailed':
       // Recoverable: the customer can retry without leaving the native sheet.
-      onPaymentAttemptFailed({ category: event.errorType });
+      onPaymentAttemptFailed({
+        order: event.order,
+        failure: event.failure,
+      });
+      break;
+    case 'paymentActionRequired':
+      onPaymentActionRequired({ order: event.order, action: event.action });
       break;
   }
 });
@@ -47,16 +53,17 @@ await initializePaymentSheet({
 try {
   const result = await presentPaymentSheet();
 
-  switch (result.status) {
+  switch (result.type) {
     case 'completed':
-      onPaymentCompleted({ paymentId: result.paymentId });
-      await merchantBackend.verifyOrderPayment(orderId);
+      onPaymentCompleted({ order: result.order });
+      await merchantBackend.verifyOrderPayment(result.order.id);
       break;
     case 'canceled':
       onPaymentCanceled();
+      if (result.order) preserveCheckoutContext(result.order.id);
       break;
     case 'failed':
-      onPaymentSheetFailed(result.error);
+      onPaymentSheetFailed(result.failure);
       break;
   }
 } finally {
@@ -125,14 +132,14 @@ metric labels. Subscribe before presenting the sheet so the first event is not
 missed.
 
 The native transport retries an idempotent Checkout mutation once when the
-server supplies a valid `Retry-After` delay. If the operation still fails, the
-terminal result may include `error.requestId` and `error.retryAfterSeconds` for
-support correlation and deliberate retry UX.
+server supplies a valid `Retry-After` delay. Transport-only request identifiers
+and retry timing remain in diagnostic telemetry; public lifecycle failures
+carry only a stable code, safe message, and recoverability flag.
 
 The package includes a Codegen-compatible TurboModule that delegates to the
 same native `Inttegro` artifacts used by the Flutter SDK. CocoaPods links the
 iOS artifact through `InttegroReactNative.podspec`, while Gradle resolves
-`com.inttegro:inttegro-android:0.3.0`.
+`com.inttegro:inttegro-android:0.4.0`.
 
 ## Requirements
 
