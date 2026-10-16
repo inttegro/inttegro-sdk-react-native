@@ -16,6 +16,10 @@ export { addPaymentSheetEventListener } from './events.js';
 export { addPaymentSheetTelemetryListener } from './telemetry.js';
 
 export type {
+  CheckoutAction,
+  CheckoutFailure,
+  CheckoutMoney,
+  CheckoutOrder,
   HexColor,
   PaymentSheetAppearance,
   PaymentSheetConfiguration,

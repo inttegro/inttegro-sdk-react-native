@@ -20,7 +20,7 @@ RCT_EXPORT_MODULE(Inttegro)
   if (self) {
     _coordinator = [[InttegroPaymentSheetCoordinator alloc] init];
     __weak InttegroModule *weakSelf = self;
-    [_coordinator setTelemetryEventHandler:^(NSDictionary *event) {
+    [_coordinator setLifecycleEventHandler:^(NSDictionary *event) {
       NSData *data = [NSJSONSerialization dataWithJSONObject:event
                                                      options:0
                                                        error:nil];
@@ -32,6 +32,20 @@ RCT_EXPORT_MODULE(Inttegro)
       }
       dispatch_async(dispatch_get_main_queue(), ^{
         [weakSelf emitOnPaymentSheetEvent:payload];
+      });
+    }];
+    [_coordinator setTelemetryEventHandler:^(NSDictionary *event) {
+      NSData *data = [NSJSONSerialization dataWithJSONObject:event
+                                                     options:0
+                                                       error:nil];
+      NSString *payload = data == nil
+        ? nil
+        : [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+      if (payload == nil) {
+        return;
+      }
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf emitOnPaymentSheetTelemetryEvent:payload];
       });
     }];
   }

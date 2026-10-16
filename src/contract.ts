@@ -1,7 +1,10 @@
 import type {
+  CheckoutAction,
+  CheckoutFailure,
+  CheckoutMoney,
+  CheckoutOrder,
   PaymentSheetConfiguration,
   PaymentSheetEvent,
-  PaymentSheetEventType,
   PaymentSheetResult,
   PaymentSheetTelemetryEvent,
   PaymentSheetTelemetryEventName,
@@ -49,23 +52,22 @@ const TELEMETRY_EVENT_FIELDS = new Set([
   'retryAfterSeconds',
   'errorType',
 ]);
-const LIFECYCLE_EVENT_TYPES: Partial<
-  Record<PaymentSheetTelemetryEventName, PaymentSheetEventType>
-> = {
-  'inttegro.payment_sheet.presented': 'presented',
-  'inttegro.checkout.load.started': 'checkoutLoadStarted',
-  'inttegro.checkout.load.succeeded': 'checkoutLoadSucceeded',
-  'inttegro.checkout.load.failed': 'checkoutLoadFailed',
-  'inttegro.payment.attempt.started': 'paymentAttemptStarted',
-  'inttegro.payment.attempt.failed': 'paymentAttemptFailed',
-  'inttegro.payment.confirmation.required': 'confirmationRequired',
-  'inttegro.payment.authorization.required': 'authorizationRequired',
-  'inttegro.payment.status.polling': 'paymentStatusPolling',
-  'inttegro.payment_sheet.completed': 'completed',
-  'inttegro.payment_sheet.canceled': 'canceled',
-  'inttegro.payment_sheet.failed': 'failed',
-};
-
+const EVENT_BASE_FIELDS = ['type', 'flowId', 'sequence', 'occurredAt'] as const;
+const MONEY_FIELDS = new Set(['value', 'currency']);
+const ORDER_FIELDS = new Set([
+  'id',
+  'status',
+  'merchant',
+  'amount',
+  'expiresAt',
+  'lineItems',
+  'documents',
+]);
+const MERCHANT_FIELDS = new Set(['displayName']);
+const LINE_ITEM_FIELDS = new Set(['id', 'name', 'quantity', 'total']);
+const DOCUMENT_FIELDS = new Set(['invoiceUrl', 'receiptUrl']);
+const ACTION_FIELDS = new Set(['type', 'expiresAt']);
+const FAILURE_FIELDS = new Set(['code', 'message', 'recoverable']);
 export function normalizeConfiguration(
   configuration: PaymentSheetConfiguration,
 ): PaymentSheetConfiguration {
@@ -225,90 +227,207 @@ export function decodePaymentSheetTelemetryEvent(
   } as PaymentSheetTelemetryEvent;
 }
 
-/** Converts a native diagnostic event into an application-facing lifecycle event. */
-export function toPaymentSheetEvent(
-  event: PaymentSheetTelemetryEvent,
-): PaymentSheetEvent | null {
-  const type = LIFECYCLE_EVENT_TYPES[event.name];
-  if (!type) return null;
-  return {
-    flowId: event.flowId,
-    sequence: event.sequence,
-    type,
-    timestamp: event.timestamp,
-    ...(event.errorType ? { errorType: event.errorType } : {}),
+export function decodePaymentSheetEvent(payload: string): PaymentSheetEvent {
+  const value: unknown = JSON.parse(payload);
+  if (
+    !isRecord(value) ||
+    typeof value.type !== 'string' ||
+    typeof value.flowId !== 'string' ||
+    !UUID.test(value.flowId) ||
+    typeof value.sequence !== 'number' ||
+    !Number.isInteger(value.sequence) ||
+    value.sequence < 1 ||
+    typeof value.occurredAt !== 'string' ||
+    Number.isNaN(Date.parse(value.occurredAt))
+  ) {
+    throw new TypeError('The native payment sheet returned an invalid lifecycle event');
+  }
+
+  const base = {
+    flowId: value.flowId,
+    sequence: value.sequence,
+    occurredAt: new Date(value.occurredAt),
   };
+  switch (value.type) {
+    case 'presented':
+    case 'ready':
+      if (!hasOnlyFields(value, EVENT_BASE_FIELDS)) break;
+      return { ...base, type: value.type };
+    case 'change':
+      if (
+        !hasOnlyFields(value, [...EVENT_BASE_FIELDS, 'complete', 'paymentMethod']) ||
+        typeof value.complete !== 'boolean' ||
+        (value.paymentMethod !== undefined && value.paymentMethod !== 'mobile_money')
+      ) {
+        break;
+      }
+      return {
+        ...base,
+        type: value.type,
+        complete: value.complete,
+        ...(value.paymentMethod ? { paymentMethod: value.paymentMethod } : {}),
+      };
+    case 'orderPrepared':
+    case 'paymentAttemptStarted':
+    case 'paymentProcessing':
+    case 'completed': {
+      if (!hasOnlyFields(value, [...EVENT_BASE_FIELDS, 'order'])) break;
+      const order = decodeOrder(value.order);
+      if (!order) break;
+      return { ...base, type: value.type, order };
+    }
+    case 'paymentActionRequired': {
+      if (!hasOnlyFields(value, [...EVENT_BASE_FIELDS, 'order', 'action'])) break;
+      const order = decodeOrder(value.order);
+      const action = decodeAction(value.action);
+      if (!order || !action) break;
+      return { ...base, type: value.type, order, action };
+    }
+    case 'paymentAttemptFailed': {
+      if (!hasOnlyFields(value, [...EVENT_BASE_FIELDS, 'order', 'failure'])) break;
+      const order = decodeOrder(value.order);
+      const failure = decodeFailure(value.failure);
+      if (!order || !failure) break;
+      return { ...base, type: value.type, order, failure };
+    }
+    case 'canceled': {
+      if (!hasOnlyFields(value, [...EVENT_BASE_FIELDS, 'order'])) break;
+      const order = value.order === undefined ? undefined : decodeOrder(value.order);
+      if (value.order !== undefined && !order) break;
+      return { ...base, type: value.type, ...(order ? { order } : {}) };
+    }
+    case 'failed': {
+      if (!hasOnlyFields(value, [...EVENT_BASE_FIELDS, 'order', 'failure'])) break;
+      const order = value.order === undefined ? undefined : decodeOrder(value.order);
+      const failure = decodeFailure(value.failure);
+      if ((value.order !== undefined && !order) || !failure) break;
+      return {
+        ...base,
+        type: value.type,
+        ...(order ? { order } : {}),
+        failure,
+      };
+    }
+  }
+  throw new TypeError('The native payment sheet returned an invalid lifecycle event');
 }
 
 export function decodePaymentSheetResult(payload: string): PaymentSheetResult {
-  const value: unknown = JSON.parse(payload);
-  if (!isRecord(value) || typeof value.status !== 'string') {
-    throw new TypeError('The native payment sheet returned an invalid result');
+  const event = decodePaymentSheetEvent(payload);
+  if (event.type === 'completed' || event.type === 'canceled' || event.type === 'failed') {
+    return event as PaymentSheetResult;
   }
+  throw new TypeError('The native payment sheet returned a non-terminal result');
+}
 
-  if (value.status === 'canceled') return { status: 'canceled' };
-  if (value.status === 'completed') {
-    if (value.paymentId !== undefined && typeof value.paymentId !== 'string') {
-      throw new TypeError(
-        'The native payment sheet returned an invalid paymentId',
-      );
-    }
-    return {
-      status: 'completed',
-      ...(value.paymentId ? { paymentId: value.paymentId } : {}),
-    };
-  }
+function decodeOrder(value: unknown): CheckoutOrder | null {
   if (
-    value.status === 'failed' &&
-    isRecord(value.error) &&
-    typeof value.error.code === 'string' &&
-    typeof value.error.message === 'string'
-  ) {
+    !isRecord(value) ||
+    !hasOnlyFields(value, ORDER_FIELDS) ||
+    typeof value.id !== 'string' ||
+    value.id.length < 1 ||
+    ![
+      'requires_payment',
+      'requires_action',
+      'processing',
+      'paid',
+      'failed',
+      'expired',
+      'canceled',
+    ].includes(String(value.status)) ||
+    !isRecord(value.merchant) ||
+    !hasOnlyFields(value.merchant, MERCHANT_FIELDS) ||
+    typeof value.merchant.displayName !== 'string' ||
+    value.merchant.displayName.length < 1 ||
+    !isMoney(value.amount) ||
+    !Array.isArray(value.lineItems) ||
+    !isRecord(value.documents)
+  ) return null;
+  const lineItems = value.lineItems.map((item) => {
     if (
-      value.error.declineCode !== undefined &&
-      typeof value.error.declineCode !== 'string'
-    ) {
-      throw new TypeError(
-        'The native payment sheet returned an invalid declineCode',
-      );
-    }
-    if (
-      value.error.requestId !== undefined &&
-      (typeof value.error.requestId !== 'string' ||
-        value.error.requestId.length < 1 ||
-        value.error.requestId.length > 255)
-    ) {
-      throw new TypeError(
-        'The native payment sheet returned an invalid requestId',
-      );
-    }
-    if (
-      value.error.retryAfterSeconds !== undefined &&
-      (typeof value.error.retryAfterSeconds !== 'number' ||
-        !Number.isInteger(value.error.retryAfterSeconds) ||
-        value.error.retryAfterSeconds < 0 ||
-        value.error.retryAfterSeconds > 300)
-    ) {
-      throw new TypeError(
-        'The native payment sheet returned an invalid retry delay',
-      );
-    }
+      !isRecord(item) ||
+      !hasOnlyFields(item, LINE_ITEM_FIELDS) ||
+      typeof item.id !== 'string' ||
+      item.id.length < 1 ||
+      typeof item.name !== 'string' ||
+      item.name.length < 1 ||
+      (item.quantity !== undefined &&
+        (typeof item.quantity !== 'number' ||
+          !Number.isInteger(item.quantity) ||
+          item.quantity < 0)) ||
+      !isMoney(item.total)
+    ) return null;
     return {
-      status: 'failed',
-      error: {
-        code: value.error.code,
-        message: value.error.message,
-        ...(value.error.declineCode
-          ? { declineCode: value.error.declineCode }
-          : {}),
-        ...(value.error.requestId ? { requestId: value.error.requestId } : {}),
-        ...(value.error.retryAfterSeconds !== undefined
-          ? { retryAfterSeconds: value.error.retryAfterSeconds }
-          : {}),
-      },
+      id: item.id,
+      name: item.name,
+      ...(item.quantity === undefined ? {} : { quantity: item.quantity }),
+      total: item.total,
     };
-  }
-  throw new TypeError('The native payment sheet returned an unknown status');
+  });
+  if (lineItems.some((item) => item === null)) return null;
+  if (
+    !hasOnlyFields(value.documents, DOCUMENT_FIELDS) ||
+    (value.expiresAt !== undefined &&
+      (typeof value.expiresAt !== 'string' || Number.isNaN(Date.parse(value.expiresAt)))) ||
+    (value.documents.invoiceUrl !== undefined && typeof value.documents.invoiceUrl !== 'string') ||
+    (value.documents.receiptUrl !== undefined && typeof value.documents.receiptUrl !== 'string')
+  ) return null;
+  return {
+    id: value.id,
+    status: value.status as CheckoutOrder['status'],
+    merchant: { displayName: value.merchant.displayName },
+    amount: value.amount,
+    ...(value.expiresAt ? { expiresAt: new Date(value.expiresAt) } : {}),
+    lineItems: lineItems as CheckoutOrder['lineItems'],
+    documents: {
+      ...(value.documents.invoiceUrl ? { invoiceUrl: value.documents.invoiceUrl } : {}),
+      ...(value.documents.receiptUrl ? { receiptUrl: value.documents.receiptUrl } : {}),
+    },
+  };
+}
+
+function decodeAction(value: unknown): CheckoutAction | null {
+  if (
+    !isRecord(value) ||
+    !hasOnlyFields(value, ACTION_FIELDS) ||
+    !['confirmation', 'authorization', 'redirect'].includes(String(value.type)) ||
+    (value.expiresAt !== undefined &&
+      (typeof value.expiresAt !== 'string' || Number.isNaN(Date.parse(value.expiresAt))))
+  ) return null;
+  return {
+    type: value.type as CheckoutAction['type'],
+    ...(value.expiresAt ? { expiresAt: new Date(value.expiresAt) } : {}),
+  };
+}
+
+function decodeFailure(value: unknown): CheckoutFailure | null {
+  return isRecord(value) &&
+    hasOnlyFields(value, FAILURE_FIELDS) &&
+    typeof value.code === 'string' &&
+    value.code.length > 0 &&
+    typeof value.message === 'string' &&
+    value.message.length > 0 &&
+    typeof value.recoverable === 'boolean'
+    ? { code: value.code, message: value.message, recoverable: value.recoverable }
+    : null;
+}
+
+function isMoney(value: unknown): value is CheckoutMoney {
+  return isRecord(value) &&
+    hasOnlyFields(value, MONEY_FIELDS) &&
+    typeof value.value === 'number' &&
+    Number.isFinite(value.value) &&
+    Number.isInteger(value.value) &&
+    typeof value.currency === 'string' &&
+    /^[A-Za-z]{3}$/.test(value.currency);
+}
+
+function hasOnlyFields(
+  value: Record<string, unknown>,
+  allowed: ReadonlySet<string> | readonly string[],
+): boolean {
+  const fields = allowed instanceof Set ? allowed : new Set(allowed);
+  return Object.keys(value).every((field) => fields.has(field));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

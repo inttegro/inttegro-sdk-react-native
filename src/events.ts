@@ -9,10 +9,7 @@
  */
 
 import NativeInttegro from './NativeInttegro.js';
-import {
-  decodePaymentSheetTelemetryEvent,
-  toPaymentSheetEvent,
-} from './contract.js';
+import { decodePaymentSheetEvent } from './contract.js';
 import type {
   PaymentSheetEvent,
   PaymentSheetEventSubscription,
@@ -34,10 +31,7 @@ export function addPaymentSheetEventListener(
   listener: (event: PaymentSheetEvent) => void
 ): PaymentSheetEventSubscription {
   return getNativeInttegro().onPaymentSheetEvent((payload) => {
-    const event = toPaymentSheetEvent(
-      decodePaymentSheetTelemetryEvent(payload)
-    );
-    if (event) listener(event);
+    listener(decodePaymentSheetEvent(payload));
   });
 }
 

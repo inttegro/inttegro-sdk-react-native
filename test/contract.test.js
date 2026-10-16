@@ -2,11 +2,26 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  decodePaymentSheetEvent,
   decodePaymentSheetTelemetryEvent,
   decodePaymentSheetResult,
   normalizeConfiguration,
-  toPaymentSheetEvent,
 } from '../lib/contract.js';
+
+const order = {
+  id: 'or_123',
+  status: 'paid',
+  merchant: { displayName: 'Acme' },
+  amount: { value: 1500, currency: 'ghs' },
+  lineItems: [],
+  documents: {},
+};
+
+const envelope = {
+  flowId: '550e8400-e29b-41d4-a716-446655440000',
+  sequence: 4,
+  occurredAt: '2026-10-16T10:00:00.000Z',
+};
 
 describe('payment-sheet contract', () => {
   it('trims the checkout Order ID', () => {
@@ -71,35 +86,77 @@ describe('payment-sheet contract', () => {
   it('decodes native results without weakening the union', () => {
     assert.deepEqual(
       decodePaymentSheetResult(
-        JSON.stringify({ status: 'completed', paymentId: 'py_123' }),
+        JSON.stringify({ ...envelope, type: 'completed', order }),
       ),
-      { status: 'completed', paymentId: 'py_123' },
+      {
+        ...envelope,
+        occurredAt: new Date(envelope.occurredAt),
+        type: 'completed',
+        order,
+      },
     );
     assert.throws(
-      () => decodePaymentSheetResult(JSON.stringify({ status: 'pending' })),
-      /unknown status/,
+      () =>
+        decodePaymentSheetResult(
+          JSON.stringify({ ...envelope, type: 'paymentProcessing', order }),
+        ),
+      /non-terminal/,
     );
     assert.deepEqual(
       decodePaymentSheetResult(
         JSON.stringify({
-          status: 'failed',
-          error: {
-            code: 'checkout_http_503',
+          ...envelope,
+          type: 'failed',
+          order: { ...order, status: 'failed' },
+          failure: {
+            code: 'payment_failed',
             message: 'Try again.',
-            requestId: 'req_test',
-            retryAfterSeconds: 30,
+            recoverable: false,
           },
         }),
       ),
       {
-        status: 'failed',
-        error: {
-          code: 'checkout_http_503',
+        ...envelope,
+        occurredAt: new Date(envelope.occurredAt),
+        type: 'failed',
+        order: { ...order, status: 'failed' },
+        failure: {
+          code: 'payment_failed',
           message: 'Try again.',
-          requestId: 'req_test',
-          retryAfterSeconds: 30,
+          recoverable: false,
         },
       },
+    );
+  });
+
+  it('decodes application lifecycle independently of telemetry', () => {
+    assert.deepEqual(
+      decodePaymentSheetEvent(
+        JSON.stringify({
+          ...envelope,
+          type: 'paymentActionRequired',
+          order: { ...order, status: 'requires_action' },
+          action: { type: 'confirmation' },
+        }),
+      ),
+      {
+        ...envelope,
+        occurredAt: new Date(envelope.occurredAt),
+        type: 'paymentActionRequired',
+        order: { ...order, status: 'requires_action' },
+        action: { type: 'confirmation' },
+      },
+    );
+    assert.throws(
+      () =>
+        decodePaymentSheetEvent(
+          JSON.stringify({
+            ...envelope,
+            type: 'completed',
+            order: { ...order, paymentId: 'pay_private' },
+          }),
+        ),
+      /invalid lifecycle event/,
     );
   });
 
@@ -154,40 +211,6 @@ describe('payment-sheet contract', () => {
       /invalid telemetry event/,
     );
 
-    assert.deepEqual(toPaymentSheetEvent(decodedEvent), {
-      flowId: event.flowId,
-      sequence: event.sequence,
-      type: 'checkoutLoadStarted',
-      timestamp: new Date(event.timestamp),
-    });
-    assert.equal(
-      toPaymentSheetEvent({
-        ...decodedEvent,
-        name: 'inttegro.payment.confirmation.required',
-      }).type,
-      'confirmationRequired',
-    );
-    assert.equal(
-      toPaymentSheetEvent({
-        ...decodedEvent,
-        name: 'inttegro.payment.authorization.required',
-      }).type,
-      'authorizationRequired',
-    );
-    assert.equal(
-      toPaymentSheetEvent({
-        ...decodedEvent,
-        name: 'inttegro.payment.status.polling',
-      }).type,
-      'paymentStatusPolling',
-    );
-    assert.equal(
-      toPaymentSheetEvent({
-        ...decodedEvent,
-        name: 'inttegro.request.prepared',
-        operation: 'checkout.lookup',
-      }),
-      null,
-    );
+    assert.equal(decodedEvent.name, 'inttegro.checkout.load.started');
   });
 });

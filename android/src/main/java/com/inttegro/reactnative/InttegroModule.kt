@@ -72,11 +72,20 @@ class InttegroModule(
 
             try {
                 presentationPromise = promise
-                val intent = PaymentSheetLauncher.createIntent(activity, payload) { event ->
-                    UiThreadUtil.runOnUiThread {
-                        emitOnPaymentSheetEvent(event)
-                    }
-                }
+                val intent = PaymentSheetLauncher.createIntent(
+                    activity,
+                    payload,
+                    { event ->
+                        UiThreadUtil.runOnUiThread {
+                            emitOnPaymentSheetEvent(event)
+                        }
+                    },
+                    { event ->
+                        UiThreadUtil.runOnUiThread {
+                            emitOnPaymentSheetTelemetryEvent(event)
+                        }
+                    },
+                )
                 launchIntent = intent
                 activity.startActivityForResult(intent, REQUEST_CODE)
             } catch (error: Exception) {
@@ -103,9 +112,15 @@ class InttegroModule(
         presentationPromise = null
         PaymentSheetLauncher.release(launchIntent)
         launchIntent = null
-        promise.resolve(
-            PaymentSheetLauncher.resultFrom(data) ?: CANCELED_RESULT,
-        )
+        val result = PaymentSheetLauncher.resultFrom(data)
+        if (result == null) {
+            promise.reject(
+                "invalid_native_result",
+                "The native payment sheet returned no result.",
+            )
+            return
+        }
+        promise.resolve(result)
     }
 
     override fun onNewIntent(intent: Intent) = Unit
@@ -113,6 +128,5 @@ class InttegroModule(
     companion object {
         const val NAME = "Inttegro"
         private const val REQUEST_CODE = 18_270
-        private const val CANCELED_RESULT = "{\"status\":\"canceled\"}"
     }
 }

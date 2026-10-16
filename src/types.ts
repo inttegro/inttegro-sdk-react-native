@@ -36,8 +36,9 @@ export interface PaymentSheetAppearance {
 /**
  * Host-owned diagnostics and W3C trace context.
  *
- * Inttegro installs no exporter. Disabling this configuration prevents both
- * native event emission and trace-header propagation for the presentation.
+ * Inttegro installs no exporter. Disabling this configuration prevents
+ * diagnostic event emission and trace-header propagation, but not Checkout
+ * lifecycle delivery.
  */
 export interface PaymentSheetTelemetry {
   /** Whether native SDK telemetry is enabled. Defaults to `true`. */
@@ -104,31 +105,54 @@ export type PaymentSheetConfiguration = {
  * experience reached success, but the merchant backend must still retrieve the
  * owner-scoped Order before fulfillment.
  */
-export type PaymentSheetResult =
-  | { status: 'completed'; paymentId?: string }
-  | { status: 'canceled' }
-  | {
-      status: 'failed';
-      error: {
-        code: string;
-        message: string;
-        declineCode?: string;
-        requestId?: string;
-        retryAfterSeconds?: number;
-      };
-    };
+export interface CheckoutMoney {
+  value: number;
+  currency: string;
+}
+
+export interface CheckoutOrder {
+  id: string;
+  status:
+    | 'requires_payment'
+    | 'requires_action'
+    | 'processing'
+    | 'paid'
+    | 'failed'
+    | 'expired'
+    | 'canceled';
+  merchant: { displayName: string };
+  amount: CheckoutMoney;
+  expiresAt?: Date;
+  lineItems: Array<{
+    id: string;
+    name: string;
+    quantity?: number;
+    total: CheckoutMoney;
+  }>;
+  documents: { invoiceUrl?: string; receiptUrl?: string };
+}
+
+export interface CheckoutAction {
+  type: 'confirmation' | 'authorization' | 'redirect';
+  expiresAt?: Date;
+}
+
+export interface CheckoutFailure {
+  code: string;
+  message: string;
+  recoverable: boolean;
+}
 
 /** Application-facing stages in one payment-sheet presentation. */
 export type PaymentSheetEventType =
   | 'presented'
-  | 'checkoutLoadStarted'
-  | 'checkoutLoadSucceeded'
-  | 'checkoutLoadFailed'
+  | 'ready'
+  | 'change'
+  | 'orderPrepared'
   | 'paymentAttemptStarted'
+  | 'paymentActionRequired'
+  | 'paymentProcessing'
   | 'paymentAttemptFailed'
-  | 'confirmationRequired'
-  | 'authorizationRequired'
-  | 'paymentStatusPolling'
   | 'completed'
   | 'canceled'
   | 'failed';
@@ -136,23 +160,60 @@ export type PaymentSheetEventType =
 /**
  * A typed lifecycle event for application UI, analytics, and coordination.
  *
- * `paymentAttemptFailed` and `checkoutLoadFailed` are recoverable: the native
- * sheet remains responsible for displaying the failure and offering a retry.
+ * `paymentAttemptFailed` is recoverable: the native sheet remains responsible
+ * for displaying the failure and offering a retry.
  * Terminal application behavior belongs in the `PaymentSheetResult` returned
  * by `presentPaymentSheet`.
  */
-export interface PaymentSheetEvent {
+interface PaymentSheetEventBase {
   /** Random identifier shared by events from one sheet presentation. */
   flowId: string;
   /** Monotonically increasing event order within the flow. */
   sequence: number;
-  /** Typed lifecycle transition. */
-  type: PaymentSheetEventType;
   /** Time at which the native SDK generated the event. */
-  timestamp: Date;
-  /** Bounded failure category when the transition represents a failure. */
-  errorType?: string;
+  occurredAt: Date;
 }
+
+export type PaymentSheetEvent =
+  | (PaymentSheetEventBase & { type: 'presented' | 'ready' })
+  | (PaymentSheetEventBase & {
+      type: 'change';
+      complete: boolean;
+      paymentMethod?: 'mobile_money';
+    })
+  | (PaymentSheetEventBase & {
+      type:
+        | 'orderPrepared'
+        | 'paymentAttemptStarted'
+        | 'paymentProcessing'
+        | 'completed';
+      order: CheckoutOrder;
+    })
+  | (PaymentSheetEventBase & {
+      type: 'paymentActionRequired';
+      order: CheckoutOrder;
+      action: CheckoutAction;
+    })
+  | (PaymentSheetEventBase & {
+      type: 'paymentAttemptFailed';
+      order: CheckoutOrder;
+      failure: CheckoutFailure;
+    })
+  | (PaymentSheetEventBase & {
+      type: 'canceled';
+      order?: CheckoutOrder;
+    })
+  | (PaymentSheetEventBase & {
+      type: 'failed';
+      order?: CheckoutOrder;
+      failure: CheckoutFailure;
+    });
+
+/** Terminal lifecycle event returned when the native sheet closes. */
+export type PaymentSheetResult = Extract<
+  PaymentSheetEvent,
+  { type: 'completed' | 'canceled' | 'failed' }
+>;
 
 /** Stable wire names emitted by the native SDK diagnostic stream. */
 export type PaymentSheetTelemetryEventName =

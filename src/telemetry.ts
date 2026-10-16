@@ -34,7 +34,7 @@ import type {
 export function addPaymentSheetTelemetryListener(
   listener: (event: PaymentSheetTelemetryEvent) => void
 ): PaymentSheetEventSubscription {
-  return getNativeInttegro().onPaymentSheetEvent((payload) => {
+  return getNativeInttegro().onPaymentSheetTelemetryEvent((payload) => {
     listener(decodePaymentSheetTelemetryEvent(payload));
   });
 }
