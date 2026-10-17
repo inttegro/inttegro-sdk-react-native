@@ -17,6 +17,6 @@ Pod::Spec.new do |spec|
   spec.ios.deployment_target = '16.0'
   spec.requires_arc = true
 
-  spec.dependency 'Inttegro', '0.4.2'
+  spec.dependency 'Inttegro', '0.4.3'
   install_modules_dependencies(spec)
 end

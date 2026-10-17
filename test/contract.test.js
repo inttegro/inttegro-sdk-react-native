@@ -31,6 +31,21 @@ describe('payment-sheet contract', () => {
     );
   });
 
+  it('normalizes the title and preserves the requested theme', () => {
+    assert.deepEqual(
+      normalizeConfiguration({
+        orderId: 'or_test',
+        title: '  Complete contribution  ',
+        appearance: { theme: 'dark' },
+      }),
+      {
+        orderId: 'or_test',
+        title: 'Complete contribution',
+        appearance: { theme: 'dark' },
+      },
+    );
+  });
+
   it('accepts a customer-selected amount Purchase Intent', () => {
     assert.deepEqual(
       normalizeConfiguration({ purchaseIntentId: '  sale_test  ' }),
@@ -59,6 +74,22 @@ describe('payment-sheet contract', () => {
           appearance: { primaryColor: '#xyz' },
         }),
       /primaryColor/,
+    );
+    assert.throws(
+      () =>
+        normalizeConfiguration({
+          orderId: 'or_test',
+          title: '   ',
+        }),
+      /title/,
+    );
+    assert.throws(
+      () =>
+        normalizeConfiguration({
+          orderId: 'or_test',
+          appearance: { theme: 'sepia' },
+        }),
+      /appearance.theme/,
     );
     assert.throws(
       () =>

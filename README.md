@@ -1,6 +1,6 @@
 # Inttegro React Native
 
-[API reference](https://react-native.inttegro.dev/v0.6.1/) ·
+[API reference](https://react-native.inttegro.dev/v0.6.2/) ·
 [Studio guide](https://studio.inttegro.com/sdks/react-native)
 
 Typed React Native facade for Inttegro's native payment sheet. The current
@@ -40,7 +40,9 @@ const lifecycleSubscription = addPaymentSheetEventListener((event) => {
 
 await initializePaymentSheet({
   orderId,
+  title: 'Complete contribution',
   returnURL: 'merchant-app://inttegro-return',
+  appearance: { theme: 'system' },
   telemetry: activeTraceContext, // Optional { traceparent, tracestate }.
   features: {
     showLineItems: true,
@@ -140,7 +142,7 @@ carry only a stable code, safe message, and recoverability flag.
 The package includes a Codegen-compatible TurboModule that delegates to the
 same native `Inttegro` artifacts used by the Flutter SDK. CocoaPods links the
 iOS artifact through `InttegroReactNative.podspec`, while Gradle resolves
-`com.inttegro:inttegro-android:0.4.2`.
+`com.inttegro:inttegro-android:0.4.3`.
 
 ## Requirements
 

@@ -23,6 +23,8 @@ export type HexColor = `#${string}`;
  * native controls, layout, accessibility behavior, and payment-state semantics.
  */
 export interface PaymentSheetAppearance {
+  /** Color scheme used by the native sheet. Defaults to the system setting. */
+  theme?: 'light' | 'dark' | 'system';
   /** Primary action color as `#RRGGBB` or `#RRGGBBAA`. */
   primaryColor?: HexColor;
   /** Sheet surface color as `#RRGGBB` or `#RRGGBBAA`. */
@@ -77,6 +79,8 @@ export interface PaymentSheetFeatures {
  * submits payment. Never pass a merchant API key into a mobile app.
  */
 export type PaymentSheetConfiguration = {
+  /** Visible payment-sheet title. Defaults to `Payment`. */
+  title?: string;
   /** Absolute deep link that resumes the application after external steps. */
   returnURL?: string;
   /** Optional native appearance overrides. */

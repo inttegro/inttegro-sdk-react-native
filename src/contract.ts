@@ -76,6 +76,10 @@ export function normalizeConfiguration(
   if (Boolean(orderId) === Boolean(purchaseIntentId)) {
     throw new TypeError('Provide exactly one of orderId or purchaseIntentId');
   }
+  const title = configuration.title?.trim() ?? 'Payment';
+  if (!title || title.length > 120) {
+    throw new TypeError('title must be between 1 and 120 characters');
+  }
 
   if (configuration.returnURL) {
     let url: URL;
@@ -90,6 +94,12 @@ export function normalizeConfiguration(
   }
 
   const appearance = configuration.appearance;
+  if (
+    appearance?.theme !== undefined &&
+    !['light', 'dark', 'system'].includes(appearance.theme)
+  ) {
+    throw new TypeError('appearance.theme must be light, dark, or system');
+  }
   if (appearance?.cornerRadius !== undefined) {
     if (
       !Number.isFinite(appearance.cornerRadius) ||
@@ -150,6 +160,9 @@ export function normalizeConfiguration(
 
   return {
     ...configuration,
+    ...(title === 'Payment' && configuration.title === undefined
+      ? {}
+      : { title }),
     ...(orderId ? { orderId } : { purchaseIntentId: purchaseIntentId! }),
   } as PaymentSheetConfiguration;
 }
