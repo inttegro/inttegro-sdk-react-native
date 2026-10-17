@@ -23,13 +23,13 @@ import type {
  * presentation.
  *
  * Initialization is deliberately separate from presentation so an application
- * can prepare Checkout before opening a modal. It validates client-owned
+ * can configure Checkout before opening a modal. It validates client-owned
  * options only; the SDK does not retrieve the Order or begin payment until
  * {@link presentPaymentSheet} is called.
  *
- * Call this again when the Order ID or presentation options change. Do not
- * include an Inttegro API key: mobile applications use the public Checkout
- * Order ID created and finalized by the merchant backend.
+ * Call this again when the checkout reference or presentation options change.
+ * Do not include an Inttegro API key: mobile applications use either a public
+ * finalized Order ID or a public Purchase Intent ID.
  *
  * @param configuration - Checkout identity, return URL, appearance, telemetry,
  * and optional presentation features.

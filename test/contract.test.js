@@ -212,5 +212,14 @@ describe('payment-sheet contract', () => {
     );
 
     assert.equal(decodedEvent.name, 'inttegro.checkout.load.started');
+
+    const payEvent = decodePaymentSheetTelemetryEvent(
+      JSON.stringify({
+        ...event,
+        name: 'inttegro.request.prepared',
+        operation: 'checkout.pay',
+      }),
+    );
+    assert.equal(payEvent.operation, 'checkout.pay');
   });
 });

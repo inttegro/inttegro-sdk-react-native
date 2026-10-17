@@ -1,6 +1,6 @@
 # Inttegro React Native
 
-[API reference](https://react-native.inttegro.dev/v0.6.0/) ·
+[API reference](https://react-native.inttegro.dev/v0.6.1/) ·
 [Studio guide](https://studio.inttegro.com/sdks/react-native)
 
 Typed React Native facade for Inttegro's native payment sheet. The current
@@ -71,16 +71,17 @@ try {
 }
 ```
 
-For a Buy link backed by a `customer_selected_amount` price, initialize with
-the client-safe Purchase Intent instead of a finalized Order:
+For a Buy link, initialize with the client-safe Purchase Intent instead of a
+finalized Order:
 
 ```ts
 await initializePaymentSheet({ purchaseIntentId: buyLink.purchaseIntentId });
 ```
 
-The native sheet retrieves the merchant's currency, range, and suggested
-amounts, lets the payer choose any valid amount, and then creates the finalized
-Order idempotently before continuing through the same payment flow. Supply
+The native sheet retrieves the Buy-link choices and lets the payer choose the
+product variant, quantity, customer details, and—when supported—amount. It
+creates the finalized Order and starts payment together only when the payer
+presses Pay. Supply
 exactly one of `orderId` or `purchaseIntentId`.
 
 The root import remains supported. Applications that prefer responsibility-based
@@ -139,7 +140,7 @@ carry only a stable code, safe message, and recoverability flag.
 The package includes a Codegen-compatible TurboModule that delegates to the
 same native `Inttegro` artifacts used by the Flutter SDK. CocoaPods links the
 iOS artifact through `InttegroReactNative.podspec`, while Gradle resolves
-`com.inttegro:inttegro-android:0.4.0`.
+`com.inttegro:inttegro-android:0.4.2`.
 
 ## Requirements
 

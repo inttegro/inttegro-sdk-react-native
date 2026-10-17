@@ -46,9 +46,10 @@ guidance and gives the payer another attempt without resolving
 Confirmation-code entry, provider redirects, device authorization, and Checkout
 status polling are also native intermediate states. Terminal results are limited
 to completion, customer cancellation, and an unrecoverable SDK failure. After
-Checkout has prepared an Order, each event carries the same client-safe Order
-shape used by the web SDK. Request correlation and retry timing remain
-telemetry-only.
+Checkout has created an Order, each subsequent event carries the same client-safe
+Order shape used by the web SDK. For a Buy link, that first happens when the payer
+presses Pay; choosing the product, amount, or quantity does not create an Order.
+Request correlation and retry timing remain telemetry-only.
 
 ## Reconcile on the backend
 

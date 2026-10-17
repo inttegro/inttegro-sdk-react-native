@@ -11,12 +11,12 @@ Pod::Spec.new do |spec|
   spec.author = package['author']
   spec.source = {
     git: 'https://github.com/inttegro/inttegro-sdk-react-native.git',
-    tag: spec.version.to_s,
+    tag: "v#{spec.version}",
   }
   spec.source_files = 'ios/**/*.{h,m,mm,swift}'
   spec.ios.deployment_target = '16.0'
   spec.requires_arc = true
 
-  spec.dependency 'Inttegro', '0.4.0'
+  spec.dependency 'Inttegro', '0.4.2'
   install_modules_dependencies(spec)
 end

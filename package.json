@@ -1,6 +1,6 @@
 {
   "name": "@inttegro/react-native",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Inttegro SDK for React Native",
   "type": "module",
   "main": "./lib/index.js",

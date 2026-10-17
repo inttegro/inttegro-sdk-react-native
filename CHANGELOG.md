@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 - 2026-10-17
+
+- Support fixed-price, customer-selected, and variant Buy links without
+  creating an Order until the payer presses Pay in the native sheet.
+- Update the native iOS and Android dependency to 0.4.2.
+
 ## 0.6.0 - 2026-10-16
 
 - Align the React Native bridge with the canonical web and native Checkout

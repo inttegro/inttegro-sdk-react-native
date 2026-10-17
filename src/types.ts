@@ -72,8 +72,9 @@ export interface PaymentSheetFeatures {
 /**
  * Configuration stored for the next native payment-sheet presentation.
  *
- * The `orderId` is the public ID returned by a merchant backend after it creates
- * and finalizes an Order. Never pass a merchant API key into a mobile app.
+ * Provide either the `orderId` returned by a merchant backend after it finalizes
+ * an Order, or a `purchaseIntentId` whose Order is created only when the payer
+ * submits payment. Never pass a merchant API key into a mobile app.
  */
 export type PaymentSheetConfiguration = {
   /** Absolute deep link that resumes the application after external steps. */
@@ -92,7 +93,7 @@ export type PaymentSheetConfiguration = {
     }
   | {
       orderId?: never;
-      /** Client-safe Purchase Intent whose amount the payer will choose. */
+      /** Client-safe Buy link whose choices remain local until payment is submitted. */
       purchaseIntentId: string;
     }
 );
@@ -259,6 +260,7 @@ export interface PaymentSheetTelemetryEvent {
   /** Checkout network operation associated with this event. */
   operation?:
     | 'checkout.lookup'
+    | 'checkout.select_amount'
     | 'checkout.pay'
     | 'checkout.request_confirmation'
     | 'checkout.confirm_payment';
